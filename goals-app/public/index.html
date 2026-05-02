@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Goals - Task Manager</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1a1a1a;
+      --sidebar-bg: #212121;
+      --card-bg: #2a2a2a;
+      --card-hover: #303030;
+      --pink: #e91e8c;
+      --teal: #1db876;
+      --amber: #f0a500;
+      --text: #f0f0f0;
+      --muted: #888;
+      --border: #333;
+      --btn-bg: #1a7a9a;
+      --btn-hover: #1d8faf;
+      --danger: #e05050;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 220px;
+      background: var(--sidebar-bg);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      border-right: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 22px 28px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+    .logo-icon { font-size: 26px; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 13px 22px;
+      cursor: pointer;
+      font-size: 15px;
+      color: #aaa;
+      transition: background 0.15s, color 0.15s;
+      user-select: none;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-item.active { color: var(--pink); }
+    .nav-item.active .nav-icon { color: var(--pink); }
+    .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+    /* ── Main ── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 32px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #topbar h1 { font-size: 24px; font-weight: 700; }
+    #topbar h1 .count { color: var(--muted); font-size: 17px; font-weight: 400; margin-left: 6px; }
+    #new-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--btn-bg);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #new-btn:hover { background: var(--btn-hover); }
+
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #333;
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      border-left: 4px solid var(--teal);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 999;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.error { border-left-color: var(--danger); }
+
+    /* ── Goals List ── */
+    #goals-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #goals-list::-webkit-scrollbar { width: 5px; }
+    #goals-list::-webkit-scrollbar-track { background: transparent; }
+    #goals-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      margin-top: 80px;
+      font-size: 15px;
+      line-height: 2;
+    }
+    .empty-state .emoji { font-size: 48px; display: block; margin-bottom: 10px; }
+
+    /* ── Goal Card ── */
+    .goal-card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 18px 22px;
+      border: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .goal-card:hover { background: var(--card-hover); }
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .goal-title { font-size: 16px; font-weight: 600; }
+    .goal-time { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .card-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: 12px; }
+    .icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 17px;
+      padding: 4px 6px;
+      border-radius: 5px;
+      line-height: 1;
+      transition: color 0.15s, background 0.15s;
+    }
+    .icon-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+    .icon-btn.del:hover { color: var(--danger); }
+    .goal-desc {
+      font-size: 14px;
+      color: #bbb;
+      margin: 10px 0 14px;
+      line-height: 1.6;
+    }
+    .card-tags { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .tag:hover { background: rgba(255,255,255,0.07); }
+    .tag.fav-on { color: var(--pink); }
+    .tag.fav-off { color: var(--muted); }
+    .tag.s-completed { color: var(--teal); cursor: default; }
+    .tag.s-completed:hover { background: none; }
+    .tag.s-in-progress { color: var(--amber); }
+    .tag.s-pending { color: var(--muted); }
+
+    /* ── Modal ── */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    #modal-overlay.open { display: flex; }
+    #modal {
+      background: #252525;
+      border-radius: 14px;
+      padding: 30px;
+      width: 440px;
+      max-width: 95vw;
+      border: 1px solid var(--border);
+    }
+    #modal h2 { font-size: 19px; font-weight: 700; margin-bottom: 22px; }
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+    .field input, .field textarea {
+      width: 100%;
+      background: #1c1c1c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 11px 13px;
+      outline: none;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field textarea:focus { border-color: var(--btn-bg); }
+    .field-error {
+      color: var(--danger);
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 9px 18px;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-cancel:hover { border-color: #666; color: var(--text); }
+    .btn-save {
+      background: var(--btn-bg);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 22px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .btn-save:hover { background: var(--btn-hover); }
+    .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="logo">
+      <span class="logo-icon">📋</span> GOALS
+    </div>
+    <div class="nav-item active" data-view="all">
+      <span class="nav-icon">🏠</span> Home
+    </div>
+    <div class="nav-item" data-view="favourite">
+      <span class="nav-icon">♥</span> Favourite
+    </div>
+    <div class="nav-item" data-view="in-progress">
+      <span class="nav-icon">≡</span> In Progress
+    </div>
+    <div class="nav-item" data-view="completed">
+      <span class="nav-icon">✓</span> Completed
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div id="main">
+    <div id="topbar">
+      <h1 id="view-title">All Goals <span class="count" id="count-label">(0)</span></h1>
+      <button id="new-btn">+ New Goal</button>
+    </div>
+    <div id="goals-list">
+      <div class="empty-state"><span class="emoji">⏳</span>Loading goals...</div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal-overlay">
+    <div id="modal">
+      <h2 id="modal-heading">New Goal</h2>
+      <div class="field">
+        <label for="f-title">Title <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="f-title" placeholder="What do you want to achieve?" maxlength="200" autocomplete="off" />
+        <div class="field-error" id="err-title">Title cannot be empty.</div>
+      </div>
+      <div class="field">
+        <label for="f-desc">Description</label>
+        <textarea id="f-desc" rows="3" placeholder="Add more details..." maxlength="1000"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="btn-cancel">Cancel</button>
+        <button class="btn-save" id="btn-save">Save Goal</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const API = '/api/goals';
+    let currentView = 'all';
+    let editId = null;
+
+    // ── DOM refs ──
+    const goalsList   = document.getElementById('goals-list');
+    const countLabel  = document.getElementById('count-label');
+    const viewTitle   = document.getElementById('view-title');
+    const overlay     = document.getElementById('modal-overlay');
+    const modalH      = document.getElementById('modal-heading');
+    const fTitle      = document.getElementById('f-title');
+    const fDesc       = document.getElementById('f-desc');
+    const errTitle    = document.getElementById('err-title');
+    const btnSave     = document.getElementById('btn-save');
+    const toast       = document.getElementById('toast');
+
+    // ── Toast ──
+    let toastTimer;
+    function showToast(msg, isError = false) {
+      clearTimeout(toastTimer);
+      toast.textContent = msg;
+      toast.className = 'show' + (isError ? ' error' : '');
+      toastTimer = setTimeout(() => { toast.className = ''; }, 3000);
+    }
+
+    // ── Time helper ──
+    function timeAgo(iso) {
+      const d = Date.now() - new Date(iso).getTime();
+      const m = Math.floor(d / 60000), h = Math.floor(d / 3600000), dy = Math.floor(d / 86400000);
+      if (d < 60000) return 'just now';
+      if (m < 60) return m + ' minute' + (m > 1 ? 's' : '') + ' ago';
+      if (h < 24) return h + ' hour' + (h > 1 ? 's' : '') + ' ago';
+      return dy + ' day' + (dy > 1 ? 's' : '') + ' ago';
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Fetch goals from API ──
+    async function loadGoals() {
+      try {
+        const params = new URLSearchParams();
+        if (currentView === 'favourite') params.set('isFavourite', 'true');
+        else if (currentView === 'in-progress') params.set('status', 'in-progress');
+        else if (currentView === 'completed') params.set('status', 'completed');
+
+        const res = await fetch(API + (params.toString() ? '?' + params : ''));
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Failed to load');
+        renderGoals(json.data);
+      } catch (e) {
+        showToast(e.message, true);
+        goalsList.innerHTML = `<div class="empty-state"><span class="emoji">⚠️</span>Could not load goals.<br>${esc(e.message)}</div>`;
+      }
+    }
+
+    // ── Render list ──
+    const viewLabels = { all: 'All Goals', favourite: 'Favourite', 'in-progress': 'In Progress', completed: 'Completed' };
+
+    function renderGoals(goals) {
+      countLabel.textContent = '(' + goals.length + ')';
+      viewTitle.innerHTML = esc(viewLabels[currentView]) + ' <span class="count" id="count-label">(' + goals.length + ')</span>';
+
+      if (!goals.length) {
+        goalsList.innerHTML = `<div class="empty-state"><span class="emoji">🎯</span>No goals here yet.<br>Click <strong>+ New Goal</strong> to get started.</div>`;
+        return;
+      }
+
+      goalsList.innerHTML = goals.map(g => {
+        const favClass = g.isFavourite ? 'fav-on' : 'fav-off';
+        const favLabel = g.isFavourite ? '♥ Fav' : '♡ Fav';
+
+        let statusTag;
+        if (g.status === 'completed') {
+          statusTag = `<button class="tag s-completed" disabled>✅ Completed</button>`;
+        } else if (g.status === 'in-progress') {
+          statusTag = `<button class="tag s-in-progress status-btn" data-id="${g._id}" data-next="completed" title="Mark as completed">⏳ In Progress</button>`;
+        } else {
+          statusTag = `<button class="tag s-pending status-btn" data-id="${g._id}" data-next="in-progress" title="Start this goal">○ Pending</button>`;
+        }
+
+        return `
+          <div class="goal-card" data-id="${g._id}">
+            <div class="card-header">
+              <div>
+                <div class="goal-title">${esc(g.title)}</div>
+                <div class="goal-time">${timeAgo(g.createdAt)}</div>
+              </div>
+              <div class="card-actions">
+                <button class="icon-btn edit-btn" data-id="${g._id}" title="Edit">✎</button>
+                <button class="icon-btn del icon-btn del-btn" data-id="${g._id}" title="Delete">🗑</button>
+              </div>
+            </div>
+            ${g.description ? `<div class="goal-desc">${esc(g.description)}</div>` : ''}
+            <div class="card-tags">
+              <button class="tag ${favClass} fav-btn" data-id="${g._id}" data-fav="${g.isFavourite}">${favLabel}</button>
+              ${statusTag}
+            </div>
+          </div>`;
+      }).join('');
+
+      // Bind events
+      goalsList.querySelectorAll('.del-btn').forEach(b =>
+        b.addEventListener('click', () => deleteGoal(b.dataset.id)));
+
+      goalsList.querySelectorAll('.edit-btn').forEach(b =>
+        b.addEventListener('click', () => openEdit(b.dataset.id, goals)));
+
+      goalsList.querySelectorAll('.fav-btn').forEach(b =>
+        b.addEventListener('click', () => toggleFav(b.dataset.id, b.dataset.fav === 'true', goals)));
+
+      goalsList.querySelectorAll('.status-btn').forEach(b =>
+        b.addEventListener('click', () => updateStatus(b.dataset.id, b.dataset.next)));
+    }
+
+    // ── CRUD operations ──
+    async function deleteGoal(id) {
+      if (!confirm('Delete this goal?')) return;
+      try {
+        const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error);
+        showToast('Goal deleted');
+        loadGoals();
+      } catch (e) { showToast(e.message, true); }
+    }
+
+    async function toggleFav(id, currentFav, goals) {
+      const goal = goals.find(g => g._id === id);
+      if (!goal) return;
+      try {
+        const res = await fetch(`${API}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: goal.title, description: goal.description, isFavourite: !currentFav })
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error);
+        showToast(!currentFav ? 'Added to favourites' : 'Removed from favourites');
+        loadGoals();
+      } catch (e) { showToast(e.message, true); }
+    }
+
+    async function updateStatus(id, nextStatus) {
+      try {
+        const res = await fetch(`${API}/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus })
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error);
+        showToast('Status updated to ' + nextStatus);
+        loadGoals();
+      } catch (e) { showToast(e.message, true); }
+    }
+
+    // ── Modal ──
+    function openNew() {
+      editId = null;
+      fTitle.value = ''; fDesc.value = '';
+      errTitle.style.display = 'none';
+      modalH.textContent = 'New Goal';
+      btnSave.textContent = 'Save Goal';
+      overlay.classList.add('open');
+      fTitle.focus();
+    }
+
+    function openEdit(id, goals) {
+      const goal = goals.find(g => g._id === id);
+      if (!goal) return;
+      editId = id;
+      fTitle.value = goal.title;
+      fDesc.value = goal.description || '';
+      errTitle.style.display = 'none';
+      modalH.textContent = 'Edit Goal';
+      btnSave.textContent = 'Update Goal';
+      overlay.classList.add('open');
+      fTitle.focus();
+    }
+
+    function closeModal() { overlay.classList.remove('open'); }
+
+    async function saveGoal() {
+      const title = fTitle.value.trim();
+      if (!title) { errTitle.style.display = 'block'; fTitle.focus(); return; }
+      errTitle.style.display = 'none';
+
+      btnSave.disabled = true;
+      btnSave.innerHTML = '<span class="spinner"></span>Saving...';
+
+      const body = { title, description: fDesc.value.trim() };
+      const url  = editId ? `${API}/${editId}` : API;
+      const method = editId ? 'PUT' : 'POST';
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error((json.messages || [json.error]).join(', '));
+        showToast(editId ? 'Goal updated!' : 'Goal created!');
+        closeModal();
+        loadGoals();
+      } catch (e) {
+        showToast(e.message, true);
+      } finally {
+        btnSave.disabled = false;
+        btnSave.textContent = editId ? 'Update Goal' : 'Save Goal';
+      }
+    }
+
+    // ── Event listeners ──
+    document.getElementById('new-btn').addEventListener('click', openNew);
+    document.getElementById('btn-cancel').addEventListener('click', closeModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+    btnSave.addEventListener('click', saveGoal);
+    fTitle.addEventListener('keydown', e => { if (e.key === 'Enter') saveGoal(); });
+    fTitle.addEventListener('input', () => { if (fTitle.value.trim()) errTitle.style.display = 'none'; });
+
+    document.querySelectorAll('.nav-item').forEach(n => {
+      n.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+        n.classList.add('active');
+        currentView = n.dataset.view;
+        loadGoals();
+      });
+    });
+
+    // ── Init ──
+    loadGoals();
+  </script>
+</body>
+</html>
